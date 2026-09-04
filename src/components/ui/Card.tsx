@@ -1,0 +1,1 @@
+import React from 'react';export default function Card({children,className='',hover=false}:{children:React.ReactNode;className?:string;hover?:boolean}){return <div className={`rounded-2xl border border-slate-200 bg-white p-5 shadow-sm ${hover?'transition hover:-translate-y-1 hover:shadow-md':''} ${className}`}>{children}</div>}

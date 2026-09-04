@@ -1,0 +1,55 @@
+'use client';
+import { useState } from 'react';
+import Link from 'next/link';
+import { MessageCircle, ArrowRight, Copy, Download, CheckCircle2, Sparkles, Loader2, RotateCcw } from 'lucide-react';
+import toast from 'react-hot-toast';
+import ResumeInput from '@/components/ResumeInput';
+import { SAMPLE_JD, SAMPLE_RESUME } from '@/lib/sample-data';
+import { parseJobDescription } from '@/lib/jd-parser';
+
+type Review = { score:number; strengths:string[]; improvements:string[]; relevance?:string; structure?:string; evidence?:string; provider?:string };
+
+function unique(items:string[]) { return [...new Set(items.filter(Boolean))]; }
+function generateQuestions(jd:string, resume:string) {
+  const parsed = parseJobDescription(jd);
+  const technical:string[] = [];
+  const soft:string[] = [];
+  parsed.skills.slice(0,5).forEach((skill,i)=> technical.push(i===0 ? `How would you use ${skill} in a real ${parsed.role} task? Walk through your approach.` : `What is your practical experience with ${skill}, and how would you apply it in this ${parsed.role} role?`));
+  if (parsed.responsibilities[0]) technical.push(`How would you approach this responsibility from the JD: “${parsed.responsibilities[0].slice(0,180)}”?`);
+  if (/debug|troubleshoot|problem|issue|quality|test|validation/i.test(jd)) technical.push(`Describe how you would diagnose and solve a difficult problem related to this ${parsed.role} position.`);
+  if (/project|build|develop|implement/i.test(jd) || /project|experience|internship/i.test(resume)) technical.push(`Walk through your most relevant project for this ${parsed.role}. What did you personally build or analyze, and what was the outcome?`);
+  if (!technical.length) technical.push(`What technical knowledge or methods would you rely on most in this ${parsed.role} role?`);
+
+  soft.push(`Why are you interested in the ${parsed.role} position?`);
+  if (/team|collaborat|cross-functional|agile|scrum/i.test(jd)) soft.push(`Tell me about a time you worked with a team when requirements or priorities changed.`);
+  if (/stakeholder|client|customer|communication/i.test(jd)) soft.push(`Describe a time you explained technical or analytical work to a non-technical stakeholder.`);
+  if (/deadline|priorit|fast-paced|multiple/i.test(jd)) soft.push(`Tell me about a time you had competing priorities. How did you decide what to do first?`);
+  soft.push(`Tell me about a mistake or setback in a project and what you changed afterward.`);
+  soft.push(`What is one area from this JD where you would need to ramp up, and how would you do that?`);
+  soft.push(`What would you aim to accomplish in your first 30 days in this role?`);
+  return { parsed, technical:unique(technical).slice(0,8), soft:unique(soft).slice(0,8) };
+}
+
+export default function InterviewPrep() {
+  const [jd,setJd]=useState(''); const [resume,setResume]=useState(''); const [sets,setSets]=useState<{technical:string[];soft:string[];role:string;skills:string[]}|null>(null); const [answers,setAnswers]=useState<Record<string,string>>({}); const [reviews,setReviews]=useState<Record<string,Review>>({}); const [reviewing,setReviewing]=useState<string|null>(null);
+  const loadSample=()=>{setJd(SAMPLE_JD);setResume(SAMPLE_RESUME);setSets(null);setAnswers({});setReviews({});toast.success('Sample interview data loaded.');};
+  const generate=()=>{if(!jd.trim()||!resume.trim()) return toast.error('Add both the actual JD and resume.'); const r=generateQuestions(jd,resume);setSets({technical:r.technical,soft:r.soft,role:r.parsed.role,skills:r.parsed.skills});setAnswers({});setReviews({});toast.success(`Interview questions generated for ${r.parsed.role}.`);};
+  const review=async(key:string,q:string)=>{const answer=answers[key]?.trim();if(!answer)return toast.error('Write your answer first.');setReviewing(key);try{const r=await fetch('/api/interview-review',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({jd,question:q,answer})});const d=await r.json();if(!r.ok)throw new Error(d.error||'Could not review answer.');setReviews(v=>({...v,[key]:d}));toast.success('Answer reviewed.');}catch(e:any){toast.error(e.message||'Review unavailable.');}finally{setReviewing(null);}};
+  const all=[...(sets?.technical||[]).map((q,i)=>({key:`t-${i}`,q,type:'Technical'})),...(sets?.soft||[]).map((q,i)=>({key:`s-${i}`,q,type:'Soft Skills'}))];
+  const copy=async()=>{const text=`Interview Prep: ${sets?.role}\n\n`+all.map((x,i)=>`Q${i+1} [${x.type}]. ${x.q}\nAnswer: ${answers[x.key]||''}`).join('\n\n');await navigator.clipboard.writeText(text);toast.success('Prep copied.');};
+  const clear=()=>{setJd('');setResume('');setSets(null);setAnswers({});setReviews({});};
+  return <div className="container py-10 print:py-0">
+    <div className="flex flex-col justify-between gap-5 md:flex-row md:items-end"><div><span className="inline-flex items-center gap-2 rounded-full bg-violet-100 px-3 py-1 text-xs font-black text-violet-700"><MessageCircle size={14}/> JD-driven interview coach</span><h1 className="mt-4 text-4xl font-black tracking-tight">Interview Prep</h1><p className="mt-2 max-w-3xl text-slate-600">Technical and soft-skill questions are generated from the actual JD. Your resume provides evidence for project and experience questions, but it does not decide the target role.</p></div><div className="flex gap-2 print:hidden"><button onClick={copy} disabled={!sets} className="inline-flex items-center gap-2 rounded-xl border bg-white px-4 py-2.5 text-sm font-bold disabled:opacity-40"><Copy size={16}/> Copy</button><button onClick={()=>window.print()} disabled={!sets} className="inline-flex items-center gap-2 rounded-xl bg-slate-950 px-4 py-2.5 text-sm font-bold text-white disabled:opacity-40"><Download size={16}/> PDF</button></div></div>
+    <div className="mt-5 flex flex-wrap gap-2 print:hidden"><button onClick={loadSample} className="rounded-xl border bg-white px-4 py-2 text-sm font-bold hover:bg-slate-50">Load sample data</button><button onClick={clear} className="inline-flex items-center gap-2 rounded-xl border px-4 py-2 text-sm font-bold text-slate-500"><RotateCcw size={14}/> Clear</button></div>
+    <div className="mt-6 grid gap-5 lg:grid-cols-2 print:hidden"><section className="rounded-2xl border bg-white p-5 shadow-sm"><div className="flex items-center justify-between"><b>Actual Job Description</b><span className="text-xs text-slate-400">{jd.length} chars</span></div><textarea value={jd} onChange={e=>setJd(e.target.value)} rows={17} placeholder="Paste the complete JD here..." className="mt-3 w-full rounded-xl border p-4"/></section><section className="rounded-2xl border bg-white p-5 shadow-sm"><ResumeInput value={resume} onChange={setResume} label="Actual Resume" placeholder="Paste resume or upload PDF / DOCX / TXT..." rows={17}/></section></div>
+    <div className="mt-5 flex flex-wrap gap-3 print:hidden"><button onClick={generate} disabled={!jd.trim()||!resume.trim()} className="inline-flex items-center gap-2 rounded-xl bg-violet-600 px-5 py-3 font-bold text-white disabled:opacity-40"><Sparkles size={17}/> Generate role-specific questions <ArrowRight size={16}/></button><Link href="/workspace" className="rounded-xl border bg-white px-5 py-3 font-bold">Open Job Workspace</Link></div>
+    {sets&&<><div className="mt-7 rounded-2xl border bg-slate-950 p-5 text-white print:bg-white print:text-slate-950 print:border"><div className="text-xs font-black uppercase tracking-widest text-blue-300 print:text-blue-600">Interview target</div><div className="mt-1 text-2xl font-black">{sets.role}</div><p className="mt-2 text-sm text-slate-300 print:text-slate-600">JD signals: {sets.skills.slice(0,10).join(' · ')||'General role requirements'}</p></div>
+      <section className="mt-7"><div className="mb-4"><h2 className="text-2xl font-black">Technical Questions</h2><p className="text-sm text-slate-500">Role, tools, responsibilities and problem-solving questions derived from the JD.</p></div><div className="space-y-4">{sets.technical.map((q,i)=><QuestionCard key={q} id={`t-${i}`} type="Technical" q={q} answer={answers[`t-${i}`]||''} setAnswer={(v)=>setAnswers(a=>({...a,[`t-${i}`]:v}))} review={reviews[`t-${i}`]} reviewing={reviewing===`t-${i}`} onReview={()=>review(`t-${i}`,q)}/>)}</div></section>
+      <section className="mt-9"><div className="mb-4"><h2 className="text-2xl font-black">Soft Skills Questions</h2><p className="text-sm text-slate-500">Communication, teamwork, ownership, adaptability and behavioral questions relevant to the JD.</p></div><div className="space-y-4">{sets.soft.map((q,i)=><QuestionCard key={q} id={`s-${i}`} type="Soft Skills" q={q} answer={answers[`s-${i}`]||''} setAnswer={(v)=>setAnswers(a=>({...a,[`s-${i}`]:v}))} review={reviews[`s-${i}`]} reviewing={reviewing===`s-${i}`} onReview={()=>review(`s-${i}`,q)}/>)}</div></section>
+    </>}
+  </div>;
+}
+
+function QuestionCard({id,type,q,answer,setAnswer,review,reviewing,onReview}:{id:string;type:string;q:string;answer:string;setAnswer:(v:string)=>void;review?:Review;reviewing:boolean;onReview:()=>void}){
+ return <article className="rounded-2xl border bg-white p-5 shadow-sm print:shadow-none"><div className="flex gap-3"><span className="grid h-9 w-9 shrink-0 place-items-center rounded-xl bg-violet-100 text-sm font-black text-violet-700">{id.startsWith('t-')?'T':'S'}</span><div className="min-w-0 flex-1"><div className="text-xs font-black uppercase tracking-widest text-slate-400">{type}</div><p className="mt-2 text-lg font-black">{q}</p><textarea value={answer} onChange={e=>setAnswer(e.target.value)} rows={5} placeholder="Answer in your own words. Include what you personally did, the approach you took and the outcome when you have real evidence." className="mt-4 w-full rounded-xl border p-3 text-sm"/><button onClick={onReview} disabled={!answer.trim()||reviewing} className="mt-3 inline-flex items-center gap-2 rounded-xl bg-blue-600 px-4 py-2.5 text-sm font-bold text-white disabled:opacity-40 print:hidden">{reviewing?<Loader2 size={15} className="animate-spin"/>:<Sparkles size={15}/>} {reviewing?'Reviewing...':'AI Review Answer'}</button>{review&&<div className="mt-4 rounded-2xl border bg-slate-50 p-4"><div className="flex items-center justify-between"><b>Answer review</b><span className="rounded-full bg-emerald-100 px-3 py-1 text-sm font-black text-emerald-700">{review.score}/100</span></div><div className="mt-3 grid gap-3 md:grid-cols-3 text-sm"><div><b>Strengths</b><ul className="mt-2 space-y-1 text-slate-600">{review.strengths?.map(x=><li key={x}>✓ {x}</li>)}</ul></div><div><b>Improve</b><ul className="mt-2 space-y-1 text-slate-600">{review.improvements?.map(x=><li key={x}>• {x}</li>)}</ul></div><div><b>Relevance & structure</b><p className="mt-2 text-slate-600">{review.relevance||'Review relevance to the JD.'}</p><p className="mt-2 text-slate-600">{review.structure||'Use a clear structure.'}</p></div></div><p className="mt-3 text-xs text-slate-400">Provider: {review.provider||'coach'} · This is coaching feedback, not a hiring prediction.</p></div>}</div></div></article>;
+}

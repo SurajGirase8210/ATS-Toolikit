@@ -1,0 +1,3 @@
+export type JobStatus='wishlist'|'applied'|'under_review'|'screening'|'interview'|'technical'|'final_round'|'offer'|'rejected'|'withdrawn';
+export type Priority='low'|'medium'|'high';
+export interface Job{ id:string; user_id?:string; company_name:string; job_title:string; job_description?:string|null; job_url?:string|null; location?:string|null; salary_range?:string|null; job_type?:string|null; ats_platform?:string|null; status:JobStatus; priority:Priority; date_applied?:string|null; date_last_update?:string|null; follow_up_date?:string|null; recruiter_name?:string|null; recruiter_email?:string|null; recruiter_phone?:string|null; resume_id?:string|null; notes?:string|null; rejection_reason?:string|null; created_at?:string; updated_at?:string; }

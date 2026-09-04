@@ -1,0 +1,12 @@
+create extension if not exists pgcrypto;
+create table if not exists job_applications(id uuid default gen_random_uuid() primary key,user_id uuid references auth.users(id) on delete cascade,company_name text not null,job_title text not null,job_description text,job_url text,location text,salary_range text,job_type text,ats_platform text,status text default 'applied',priority text default 'medium',date_applied date,date_last_update timestamptz default now(),follow_up_date date,recruiter_name text,recruiter_email text,recruiter_phone text,resume_id uuid,notes text,rejection_reason text,created_at timestamptz default now(),updated_at timestamptz default now());
+alter table job_applications enable row level security;
+create policy "own applications select" on job_applications for select using(auth.uid()=user_id);
+create policy "own applications insert" on job_applications for insert with check(auth.uid()=user_id);
+create policy "own applications update" on job_applications for update using(auth.uid()=user_id);
+create policy "own applications delete" on job_applications for delete using(auth.uid()=user_id);
+create table if not exists resumes(id uuid default gen_random_uuid() primary key,user_id uuid references auth.users(id) on delete cascade,name text not null,content text not null,file_url text,file_type text default 'pdf',is_default boolean default false,created_at timestamptz default now(),updated_at timestamptz default now());
+create table if not exists ats_analyses(id uuid default gen_random_uuid() primary key,user_id uuid references auth.users(id) on delete cascade,resume_id uuid references resumes(id),job_description text not null,job_title text,company_name text,overall_score integer,keyword_score integer,format_score integer,keywords_found jsonb default '[]',keywords_missing jsonb default '[]',keywords_low jsonb default '[]',format_checks jsonb default '{}',suggestions jsonb default '[]',original_content text,optimized_content text,created_at timestamptz default now());
+alter table resumes enable row level security; alter table ats_analyses enable row level security;
+create policy "own resumes" on resumes for all using(auth.uid()=user_id) with check(auth.uid()=user_id);
+create policy "own analyses" on ats_analyses for all using(auth.uid()=user_id) with check(auth.uid()=user_id);
