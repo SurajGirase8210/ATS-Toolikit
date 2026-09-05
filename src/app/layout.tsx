@@ -41,6 +41,9 @@ export const metadata: Metadata = {
 
   verification: {
     google: 'mRSfWvM0YWbFPVDC0e1Gb3ime0cf8tFBMUd9gnnx7dM',
+    other: {
+      'msvalidate.01': 'F95E71145FE9A8EC0D2365D3061488A3',
+    },
   },
 
   alternates: {
@@ -76,7 +79,6 @@ export const metadata: Metadata = {
       'Evidence-backed resume optimization and job search tools for students, freshers, and professionals.',
   },
 };
-
 export default function RootLayout({
   children,
 }: {
